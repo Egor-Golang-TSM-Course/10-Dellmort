@@ -1,7 +1,6 @@
 package processor
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"lesson10/config"
@@ -24,16 +23,18 @@ func New(config *config.Config, b []byte) (*analyzer, error) {
 	if err != nil {
 		return nil, err
 	}
-	reportFile, err := os.OpenFile(config.ReportFilePath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0744)
+
+	reportFile, err := os.OpenFile(config.ReportFilePath, os.O_CREATE|os.O_RDWR, 0744)
 	if err != nil {
 		return nil, err
 	}
+
 	return &analyzer{
 		file:       file,
 		level:      config.Level,
 		modeRead:   config.Mode,
 		reportFile: reportFile,
-		handler:    handler.New(b),
+		handler:    handler.New(),
 		flag:       config.Flag,
 	}, nil
 }
@@ -46,16 +47,40 @@ func (a *analyzer) Analysis() error {
 		return err
 	}
 
-	body, err := json.MarshalIndent(logType, " ", "  ")
-	if err != nil {
-		return err
-	}
+	var (
+		info      = logType["INFO"]
+		warning   = logType["WARNING"]
+		errorType = logType["ERROR"]
+	)
 
 	if a.reportFile != nil && a.flag {
-		a.reportFile.Write(body)
+		switch a.level {
+		case 1:
+			_, err := a.reportFile.WriteString(
+				fmt.Sprintf("INFO: %d\nWARNING:%d\nERROR:%d", info, warning, errorType),
+			)
+			if err != nil {
+				return err
+			}
+		case 2:
+			_, err := a.reportFile.WriteString(
+				fmt.Sprintf("WARNING:%d\n ERROR:%d", warning, errorType),
+			)
+			if err != nil {
+				return err
+			}
+		case 3:
+			_, err := a.reportFile.WriteString(
+				fmt.Sprintf("ERROR:%d", errorType),
+			)
+			if err != nil {
+				return err
+			}
+		}
 	} else {
-		fmt.Println(logType)
+		fmt.Printf("INFO:%d, WARNING:%d, ERROR:%d", info, warning, errorType)
 	}
+
 	return nil
 }
 
@@ -70,10 +95,7 @@ func (a *analyzer) analysis() (map[string]int, error) {
 		err    error
 	)
 	if a.modeRead == 0 {
-		buffer, err = io.ReadAll(a.handler)
-		if err != nil {
-			return nil, err
-		}
+		return a.handler.ReadConsole()
 	} else {
 		buffer, err = io.ReadAll(a.file)
 		if err != nil {

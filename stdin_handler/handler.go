@@ -3,21 +3,44 @@ package stdinhandler
 import (
 	"bufio"
 	"os"
+	"strings"
 )
 
 type Handler struct {
-	body []byte
+	statsTypeMap map[string]int
 }
 
-func New(b []byte) *Handler {
+func New() *Handler {
 	return &Handler{
-		body: b,
+		statsTypeMap: map[string]int{
+			"INFO":    0,
+			"WARNING": 0,
+			"ERROR":   0,
+		},
 	}
 }
 
-func (h *Handler) Read(b []byte) (n int, err error) {
-	for {
-		reader := bufio.NewReader(os.Stdin)
-		return reader.Read(b)
+func (h *Handler) ReadConsole() (map[string]int, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		text := scanner.Text()
+		if text == "" {
+			break
+		}
+		if strings.Contains(text, "INFO") {
+			h.statsTypeMap["INFO"]++
+		}
+		if strings.Contains(text, "WARNING") {
+			h.statsTypeMap["WARNING"]++
+		}
+		if strings.Contains(text, "ERROR") {
+			h.statsTypeMap["ERROR"]++
+		}
 	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return h.statsTypeMap, nil
 }
